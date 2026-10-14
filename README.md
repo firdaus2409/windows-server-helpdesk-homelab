@@ -17,15 +17,6 @@ Built in October 2026.
 | Domain | homelab.internal (NetBIOS name HOMELAB) |
 | Help desk | Jira Service Management (Free plan) with a Confluence knowledge base |
 
-```
-        VirtualBox NAT Network "LabNet" (10.10.10.0/24)
-                    Gateway 10.10.10.1
-                 /                      \
-   DC01 (10.10.10.10)              CLIENT01 (DHCP)
-   AD DS, DNS, DHCP,               Windows 11, joined to
-   file share                      homelab.internal
-```
-
 I used `homelab.internal` as the domain name because ICANN reserved `.internal` for private networks in 2024, so it will never clash with a real public domain.
 
 ![Server Manager showing the AD DS, DHCP and DNS roles](screenshots/build/02-server-manager-roles.png)
@@ -41,17 +32,7 @@ I used `homelab.internal` as the domain name because ICANN reserved `.internal` 
 
 ### Users, groups and OUs
 
-```
-homelab.internal
-  HomeLab
-    Staff
-      IT
-      Finance
-      HR
-    Groups           SG-IT, SG-Finance, SG-HR
-    Workstations     CLIENT01
-    Disabled Users
-```
+Everything I created sits under a top-level OU called HomeLab. Staff accounts are split into IT, Finance and HR OUs, and there are separate OUs for the security groups (SG-IT, SG-Finance, SG-HR), workstations and disabled accounts.
 
 - Created the first 15 staff accounts with a PowerShell script that reads a CSV file ([scripts/New-LabUsers.ps1](scripts/New-LabUsers.ps1) and [scripts/users.csv](scripts/users.csv)). Each user is placed in their department OU, added to the matching security group, and has to change their password at first sign-in.
 - The script asks for the temporary password when it runs, so no password is saved in the script or the CSV. It skips accounts that already exist, so it is safe to run again.
@@ -143,19 +124,9 @@ The staff article sits in an external knowledge base, so staff can find it in th
 - Windows Server and Windows 11 run on Microsoft's free evaluation licences.
 - There is only one domain controller, so there is no redundancy.
 
-## Repository contents
+## Files
 
-```
-README.md
-scripts/
-  New-LabUsers.ps1      Bulk user creation from CSV
-  users.csv             The 15 fictional staff accounts (no passwords)
-knowledge-base/         The five knowledge base articles
-screenshots/
-  build/                Lab setup
-  tickets/              Problems and fixes, named by ticket number
-  jira/                 Jira tickets and knowledge base
-```
+The user creation script and CSV are in [scripts/](scripts/), the knowledge base articles in [knowledge-base/](knowledge-base/), and more screenshots in [screenshots/](screenshots/).
 
 ## Tools used
 
