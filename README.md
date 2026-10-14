@@ -82,21 +82,21 @@ All 17 tickets are in Jira Service Management. For each one I did the work in th
 - a reply to the user in plain language
 - a resolution: Done, or Won't do when a request was refused
 
-I set priority by impact. High means many users are affected or there is a security risk, Medium means one person can't work, and Low is for requests where nobody is blocked. That gave 3 High, 8 Medium and 6 Low.
+I set priority from impact (how many people are affected) and urgency (how quickly things get worse or how time-sensitive the request is), the way ITIL-based service desks do. High means many users are affected or there is a security risk. Medium means one person's work is affected, or a request is time-sensitive, such as removing a leaver's access. Low is for requests where nobody is blocked. That gave 3 High, 8 Medium and 6 Low.
 
 | Ticket | Request | Priority | Resolution | What I did |
 |---|---|---|---|---|
 | HD-1 | Account locked out | Medium | Done | Confirmed the lockout in ADUC, then reset the password with "Unlock the user's account" and "User must change password at next logon" ticked. |
 | HD-2 | Finance team needs a shared drive | Low | Done | Created the Finance share, set NTFS permissions for SG-Finance, and mapped it as F: with a GPO. |
 | HD-3 | Access denied to the Finance folder | Low | Won't do | The user is in HR, not Finance. Access is restricted by design, so I told the user it needs the Finance Manager's approval first. |
-| HD-4 | Domain controller not registered in DNS | High | Done | dcdiag showed Event 5774. Re-registered the DC's DNS records and confirmed the SRV record with nslookup. |
+| HD-4 | Domain controller not registered in DNS | High | Done | `dcdiag` showed Event 5774. Re-registered the DC's DNS records and confirmed the SRV record with `nslookup`. |
 | HD-5 | New laptop setup and domain join | Low | Done | Installed Windows 11, checked it got a DHCP lease, joined it to the domain and moved it to the Workstations OU. |
 | HD-6 | Onboard 15 new staff | Low | Done | Built the OUs and security groups, then created the accounts from a CSV with a PowerShell script. |
 | HD-7 | File deleted from the Finance drive | Medium | Done | Recovered the one file from a shadow copy through Previous Versions, without rolling back the whole folder. |
 | HD-8 | New Finance hire | Low | Done | Copied an existing Finance user in ADUC so the new account got the same group access. |
 | HD-9 | Leaver offboarding | Medium | Done | Disabled the account, reset the password, removed group access, added the ticket number to the description and moved it to Disabled Users. |
 | HD-10 | Transfer from HR to Finance | Low | Done | Moved the account to the Finance OU, swapped SG-HR for SG-Finance and confirmed F: appeared after the user signed in again. |
-| HD-11 | F: drive missing | Medium | Done | gpresult /r showed the GPO applied but SG-Finance missing from the user's groups. Added the user back to the group. |
+| HD-11 | F: drive missing | Medium | Done | `gpresult /r` showed the GPO applied but SG-Finance missing from the user's groups. Added the user back to the group. |
 | HD-12 | PC has no network | High | Done | The PC had a 169.254.x.x address. Found the DHCP scope deactivated, activated it and renewed the lease. |
 | HD-13 | Can't reach company systems | Medium | Done | DNS had been set by hand to 8.8.8.8. Set it back to automatic so the PC uses the domain controller for DNS again. |
 | HD-14 | Trust relationship failed | Medium | Done | Signed in with the local admin account and repaired the secure channel with `Test-ComputerSecureChannel -Repair`. |
@@ -128,9 +128,13 @@ The staff article sits in an external knowledge base, so staff can find it in th
 
 ## Problems I ran into
 
-**dcdiag errors on the new domain controller.** Right after promotion, `dcdiag /q` failed the DFSREvent and SystemLog tests. Most of the events were one-time startup noise: the first RID pool request, the initial SYSVOL setup, and Secure Boot certificate updates on a VM with Secure Boot turned off. The one that mattered was Event 5774, which meant the DC couldn't register its DNS records. Without them, other computers can't find the domain. I re-registered them with `ipconfig /registerdns` and a Netlogon restart, then confirmed the `_ldap._tcp` SRV record with nslookup. This became ticket HD-4.
+**dcdiag errors on the new domain controller.** Right after promotion, `dcdiag /q` failed the DFSREvent and SystemLog tests. Most of the events were one-time startup noise: the first RID pool request, the initial SYSVOL setup, and Secure Boot certificate updates on a VM with Secure Boot turned off. The one that mattered was Event 5774, which meant the DC couldn't register its DNS records. Without them, other computers can't find the domain. I re-registered them with `ipconfig /registerdns` and a Netlogon restart, then confirmed the `_ldap._tcp` SRV record with `nslookup`. This became ticket HD-4.
 
 **Knowledge base articles wouldn't save.** Jira showed "We're having trouble creating the article", and Confluence said I didn't have permission to create pages. Atlassian's support article for that error pointed to Confluence permissions. My account had no Confluence role, so I added one in Atlassian Administration and then checked billing to make sure the site was still on the Free plan. I gave myself the App admin role because it was quickest in a one-person lab. In a real company I'd assign the lowest role that does the job.
+
+**The trust error didn't show up at first.** When I recreated the HD-14 problem to get a screenshot, I reset CLIENT01's computer account but could still sign in as the domain administrator. Windows had used that account's cached credentials instead of checking with the domain controller. The error only appeared when I signed in as a user who had never logged on to that PC, so Windows had to contact the domain controller. The repair command then failed the first time with "Administrator rights are required", because I had opened PowerShell without Run as administrator. In a real office this means a user with cached credentials can keep working after the trust breaks, and the first sign is often a new user who can't log in.
+
+**CLIENT01 lost its network after restoring snapshots.** After I restored both VMs from snapshots, CLIENT01 had a 169.254.x.x address and couldn't reach anything, so domain sign-ins failed with "your domain isn't available". The DHCP server on DC01 wasn't handing out addresses. I fixed it in the DHCP console, ran `ipconfig /renew` on CLIENT01, and took a new snapshot of both VMs so I had a clean restore point.
 
 ## Limitations
 
